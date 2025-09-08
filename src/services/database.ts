@@ -2,7 +2,7 @@ import * as SQLite from 'expo-sqlite';
 import { Item, UsageRecord, CreateItemInput, UpdateItemInput, ItemWithUsage, DatabaseService } from '../types';
 
 const DATABASE_NAME = 'price_per_use.db';
-const DATABASE_VERSION = 1;
+const DATABASE_VERSION = 2;
 
 class DatabaseServiceImpl implements DatabaseService {
   private db: SQLite.SQLiteDatabase | null = null;
@@ -19,6 +19,7 @@ class DatabaseServiceImpl implements DatabaseService {
         name TEXT NOT NULL,
         price REAL NOT NULL,
         purchase_date TEXT NOT NULL,
+        color TEXT NOT NULL DEFAULT '#6200EE',
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       );
@@ -32,7 +33,12 @@ class DatabaseServiceImpl implements DatabaseService {
       );
       
       CREATE INDEX IF NOT EXISTS idx_usage_records_item_id ON usage_records(item_id);
-    `);
+      
+      -- Add color column to existing items table if it doesn't exist
+      ALTER TABLE items ADD COLUMN color TEXT DEFAULT '#6200EE';
+    `).catch(() => {
+      // Column already exists, ignore error
+    });
   }
 
   private ensureDatabase(): SQLite.SQLiteDatabase {
@@ -47,8 +53,8 @@ class DatabaseServiceImpl implements DatabaseService {
     const now = new Date().toISOString();
     
     const result = await db.runAsync(
-      'INSERT INTO items (name, price, purchase_date, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
-      [item.name, item.price, item.purchase_date, now, now]
+      'INSERT INTO items (name, price, purchase_date, color, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+      [item.name, item.price, item.purchase_date, item.color || '#6200EE', now, now]
     );
 
     const createdItem: Item = {
@@ -56,6 +62,7 @@ class DatabaseServiceImpl implements DatabaseService {
       name: item.name,
       price: item.price,
       purchase_date: item.purchase_date,
+      color: item.color || '#6200EE',
       created_at: now,
       updated_at: now,
     };
@@ -93,6 +100,10 @@ class DatabaseServiceImpl implements DatabaseService {
     if (updates.purchase_date !== undefined) {
       setParts.push('purchase_date = ?');
       values.push(updates.purchase_date);
+    }
+    if (updates.color !== undefined) {
+      setParts.push('color = ?');
+      values.push(updates.color);
     }
     
     setParts.push('updated_at = ?');

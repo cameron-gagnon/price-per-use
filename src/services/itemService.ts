@@ -24,6 +24,9 @@ class ItemService {
     if (!itemData.purchase_date) {
       throw new Error('Purchase date is required');
     }
+    if (itemData.color && !this.isValidHexColor(itemData.color)) {
+      throw new Error('Invalid color format. Please use hex color format (e.g., #FF0000)');
+    }
 
     return await databaseService.createItem(itemData);
   }
@@ -34,6 +37,9 @@ class ItemService {
     }
     if (updates.price !== undefined && updates.price <= 0) {
       throw new Error('Item price must be greater than 0');
+    }
+    if (updates.color && !this.isValidHexColor(updates.color)) {
+      throw new Error('Invalid color format. Please use hex color format (e.g., #FF0000)');
     }
 
     await databaseService.updateItem(id, updates);
@@ -72,6 +78,10 @@ class ItemService {
 
   calculatePricePerUse(price: number, usageCount: number): number {
     return usageCount > 0 ? price / usageCount : price;
+  }
+
+  private isValidHexColor(color: string): boolean {
+    return /^#[0-9A-F]{6}$/i.test(color);
   }
 }
 

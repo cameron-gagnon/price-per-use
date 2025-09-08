@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { TextInput, Button, Text, HelperText } from 'react-native-paper';
 import { CreateItemInput } from '../types';
+import ColorPicker from './ColorPicker';
 
 interface AddItemFormProps {
   onSubmit: (item: CreateItemInput) => Promise<void>;
@@ -17,6 +18,7 @@ export const AddItemForm: React.FC<AddItemFormProps> = ({
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
   const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedColor, setSelectedColor] = useState('#6200EE');
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   const validateForm = (): boolean => {
@@ -48,6 +50,7 @@ export const AddItemForm: React.FC<AddItemFormProps> = ({
       name: name.trim(),
       price: parseFloat(price),
       purchase_date: new Date(purchaseDate).toISOString(),
+      color: selectedColor,
     };
 
     try {
@@ -55,6 +58,7 @@ export const AddItemForm: React.FC<AddItemFormProps> = ({
       setName('');
       setPrice('');
       setPurchaseDate(new Date().toISOString().split('T')[0]);
+      setSelectedColor('#6200EE');
       setErrors({});
     } catch (error) {
       setErrors({ submit: 'Failed to create item. Please try again.' });
@@ -109,6 +113,12 @@ export const AddItemForm: React.FC<AddItemFormProps> = ({
         <HelperText type="error" visible={!!errors.purchaseDate}>
           {errors.purchaseDate}
         </HelperText>
+
+        <ColorPicker
+          selectedColor={selectedColor}
+          onColorSelect={setSelectedColor}
+          label="Item Color"
+        />
 
         {errors.submit && (
           <HelperText type="error" visible={true} style={styles.submitError}>

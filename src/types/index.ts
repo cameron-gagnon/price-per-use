@@ -3,6 +3,7 @@ export interface Item {
   name: string;
   price: number;
   purchase_date: string; // ISO 8601 format
+  color: string;         // Hex color code
   created_at: string;    // ISO 8601 format
   updated_at: string;    // ISO 8601 format
 }
@@ -18,12 +19,14 @@ export interface CreateItemInput {
   name: string;
   price: number;
   purchase_date: string;
+  color?: string;
 }
 
 export interface UpdateItemInput {
   name?: string;
   price?: number;
   purchase_date?: string;
+  color?: string;
 }
 
 export interface ItemWithUsage extends Item {

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
-import { Card, Text, Badge } from 'react-native-paper';
+import { Card, Text } from 'react-native-paper';
 import { ItemWithUsage } from '../types';
 import itemService from '../services/itemService';
 
@@ -23,6 +23,23 @@ export const ItemCard: React.FC<ItemCardProps> = ({
     onLongPress(item);
   };
 
+  const getContrastColor = (hexColor: string) => {
+    const r = parseInt(hexColor.slice(1, 3), 16);
+    const g = parseInt(hexColor.slice(3, 5), 16);
+    const b = parseInt(hexColor.slice(5, 7), 16);
+    const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+    return brightness > 128 ? '#000000' : '#FFFFFF';
+  };
+
+  const getSecondaryTextColor = (hexColor: string) => {
+    const contrastColor = getContrastColor(hexColor);
+    return contrastColor === '#000000' ? '#666666' : '#CCCCCC';
+  };
+
+  const cardBackgroundColor = item.color || '#6200EE';
+  const textColor = getContrastColor(cardBackgroundColor);
+  const secondaryTextColor = getSecondaryTextColor(cardBackgroundColor);
+
   return (
     <TouchableOpacity
       onPress={handlePress}
@@ -30,31 +47,33 @@ export const ItemCard: React.FC<ItemCardProps> = ({
       activeOpacity={0.7}
       style={styles.container}
     >
-      <Card style={styles.card}>
+      <Card style={[styles.card, { backgroundColor: cardBackgroundColor }]}>
         <Card.Content>
           <View style={styles.header}>
-            <Text variant="headlineSmall" style={styles.itemName}>
+            <Text variant="headlineSmall" style={[styles.itemName, { color: textColor }]}>
               {item.name}
             </Text>
-            <Badge size={24} style={styles.usageBadge}>
-              {item.usage_count}
-            </Badge>
           </View>
           
           <View style={styles.priceContainer}>
-            <Text variant="displaySmall" style={styles.pricePerUse}>
-              {itemService.formatCurrency(item.price_per_use)}
-            </Text>
-            <Text variant="bodyMedium" style={styles.priceLabel}>
-              per use
+            <View style={styles.priceRow}>
+              <Text variant="displaySmall" style={[styles.pricePerUse, { color: textColor }]}>
+                {itemService.formatCurrency(item.price_per_use)}
+              </Text>
+              <Text variant="bodyMedium" style={[styles.priceLabel, { color: secondaryTextColor }]}>
+                {' '}per use
+              </Text>
+            </View>
+            <Text variant="bodySmall" style={[styles.usageLabel, { color: secondaryTextColor }]}>
+              after {item.usage_count} use{item.usage_count !== 1 ? 's' : ''}
             </Text>
           </View>
           
-          <View style={styles.footer}>
-            <Text variant="bodySmall" style={styles.originalPrice}>
+          <View style={[styles.footer, { borderTopColor: secondaryTextColor }]}>
+            <Text variant="bodySmall" style={[styles.originalPrice, { color: secondaryTextColor }]}>
               Original: {itemService.formatCurrency(item.price)}
             </Text>
-            <Text variant="bodySmall" style={styles.purchaseDate}>
+            <Text variant="bodySmall" style={[styles.purchaseDate, { color: secondaryTextColor }]}>
               {itemService.formatDate(item.purchase_date)}
             </Text>
           </View>
@@ -82,20 +101,27 @@ const styles = StyleSheet.create({
     flex: 1,
     fontWeight: 'bold',
   },
-  usageBadge: {
-    backgroundColor: '#6200EE',
-  },
   priceContainer: {
     alignItems: 'center',
     marginVertical: 16,
   },
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginBottom: 4,
+  },
   pricePerUse: {
     fontWeight: 'bold',
-    color: '#1976D2',
+    // color will be set dynamically
   },
   priceLabel: {
-    color: '#666',
-    marginTop: 4,
+    // color will be set dynamically
+    fontSize: 16,
+  },
+  usageLabel: {
+    // color will be set dynamically
+    fontSize: 12,
+    fontStyle: 'italic',
   },
   footer: {
     flexDirection: 'row',
@@ -104,13 +130,13 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
+    // borderTopColor will be set dynamically
   },
   originalPrice: {
-    color: '#666',
+    // color will be set dynamically
   },
   purchaseDate: {
-    color: '#666',
+    // color will be set dynamically
   },
 });
 
