@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, FlatList, StyleSheet, RefreshControl } from 'react-native';
-import { Appbar, FAB, Text, ActivityIndicator, Surface } from 'react-native-paper';
+import { Appbar, FAB, Text, ActivityIndicator, Surface, Searchbar } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
 import ItemCard from '../components/ItemCard';
 import { ItemWithUsage } from '../types';
@@ -12,15 +12,18 @@ interface HomeScreenProps {
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const [items, setItems] = useState<ItemWithUsage[]>([]);
+  const [filteredItems, setFilteredItems] = useState<ItemWithUsage[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const loadItems = async () => {
     try {
       setError(null);
       const itemsData = await itemService.getAllItemsWithUsage();
       setItems(itemsData);
+      setFilteredItems(itemsData);
     } catch (err) {
       console.error('Failed to load items:', err);
       setError('Failed to load items. Please try again.');
@@ -76,6 +79,28 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     navigation.navigate('AddItem');
   };
 
+  const filterItems = (query: string) => {
+    if (!query.trim()) {
+      setFilteredItems(items);
+      return;
+    }
+    
+    const lowercaseQuery = query.toLowerCase().trim();
+    const filtered = items.filter(item =>
+      item.name.toLowerCase().includes(lowercaseQuery)
+    );
+    setFilteredItems(filtered);
+  };
+
+  const handleSearchChange = (query: string) => {
+    setSearchQuery(query);
+    filterItems(query);
+  };
+
+  useEffect(() => {
+    filterItems(searchQuery);
+  }, [items]);
+
   const renderItem = ({ item }: { item: ItemWithUsage }) => (
     <ItemCard
       item={item}
@@ -84,16 +109,23 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     />
   );
 
-  const renderEmptyState = () => (
-    <Surface style={styles.emptyState}>
-      <Text variant="headlineSmall" style={styles.emptyTitle}>
-        No items yet
-      </Text>
-      <Text variant="bodyMedium" style={styles.emptyMessage}>
-        Tap the + button to add your first item and start tracking its price per use!
-      </Text>
-    </Surface>
-  );
+  const renderEmptyState = () => {
+    const isSearching = searchQuery.trim().length > 0;
+    
+    return (
+      <Surface style={styles.emptyState}>
+        <Text variant="headlineSmall" style={styles.emptyTitle}>
+          {isSearching ? 'No items found' : 'No items yet'}
+        </Text>
+        <Text variant="bodyMedium" style={styles.emptyMessage}>
+          {isSearching 
+            ? `No items match "${searchQuery}". Try a different search term.`
+            : 'Tap the + button to add your first item and start tracking its price per use!'
+          }
+        </Text>
+      </Surface>
+    );
+  };
 
   if (loading) {
     return (
@@ -115,6 +147,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         <Appbar.Content title="Price Per Use" />
       </Appbar.Header>
 
+      <Searchbar
+        placeholder="Search items..."
+        onChangeText={handleSearchChange}
+        value={searchQuery}
+        style={styles.searchBar}
+      />
+
       {error && (
         <Surface style={styles.errorBanner}>
           <Text variant="bodyMedium" style={styles.errorText}>
@@ -124,14 +163,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       )}
 
       <FlatList
-        data={items}
+        data={filteredItems}
         renderItem={renderItem}
         keyExtractor={(item) => item.id.toString()}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
         }
         ListEmptyComponent={renderEmptyState}
-        contentContainerStyle={items.length === 0 ? styles.emptyContainer : undefined}
+        contentContainerStyle={filteredItems.length === 0 ? styles.emptyContainer : undefined}
       />
 
       <FAB
@@ -147,6 +186,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  searchBar: {
+    margin: 16,
+    marginBottom: 8,
   },
   centerContent: {
     flex: 1,

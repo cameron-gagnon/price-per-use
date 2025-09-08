@@ -55,8 +55,9 @@ export interface DatabaseService {
   updateItem(id: number, updates: UpdateItemInput): Promise<void>;
   deleteItem(id: number): Promise<void>;
   
-  addUsage(itemId: number): Promise<void>;
+  addUsage(itemId: number, usageDate?: string): Promise<void>;
   getUsageHistory(itemId: number): Promise<UsageRecord[]>;
+  deleteUsageRecord(usageId: number): Promise<void>;
   
   getItemWithUsageCount(id: number): Promise<ItemWithUsage>;
   getAllItemsWithUsage(): Promise<ItemWithUsage[]>;

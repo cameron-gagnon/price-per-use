@@ -121,13 +121,14 @@ class DatabaseServiceImpl implements DatabaseService {
     await db.runAsync('DELETE FROM items WHERE id = ?', [id]);
   }
 
-  async addUsage(itemId: number): Promise<void> {
+  async addUsage(itemId: number, usageDate?: string): Promise<void> {
     const db = this.ensureDatabase();
     const now = new Date().toISOString();
+    const usageDateTime = usageDate || now;
     
     await db.runAsync(
       'INSERT INTO usage_records (item_id, usage_date, created_at) VALUES (?, ?, ?)',
-      [itemId, now, now]
+      [itemId, usageDateTime, now]
     );
   }
 
@@ -138,6 +139,11 @@ class DatabaseServiceImpl implements DatabaseService {
       [itemId]
     );
     return result as UsageRecord[];
+  }
+
+  async deleteUsageRecord(usageId: number): Promise<void> {
+    const db = this.ensureDatabase();
+    await db.runAsync('DELETE FROM usage_records WHERE id = ?', [usageId]);
   }
 
   async getItemWithUsageCount(id: number): Promise<ItemWithUsage> {

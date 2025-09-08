@@ -49,17 +49,21 @@ class ItemService {
     await databaseService.deleteItem(id);
   }
 
-  async incrementUsage(itemId: number): Promise<void> {
+  async incrementUsage(itemId: number, usageDate?: string): Promise<void> {
     const item = await databaseService.getItemById(itemId);
     if (!item) {
       throw new Error('Item not found');
     }
     
-    await databaseService.addUsage(itemId);
+    await databaseService.addUsage(itemId, usageDate);
   }
 
   async getUsageHistory(itemId: number): Promise<UsageRecord[]> {
     return await databaseService.getUsageHistory(itemId);
+  }
+
+  async deleteUsageRecord(usageId: number): Promise<void> {
+    await databaseService.deleteUsageRecord(usageId);
   }
 
   formatCurrency(amount: number): string {
