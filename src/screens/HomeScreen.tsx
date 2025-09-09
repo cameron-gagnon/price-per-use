@@ -110,19 +110,31 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     
     const lowercaseQuery = query.toLowerCase().trim();
     
-    // Filter individual items
+    // Filter individual items (search by item name only in list view)
     const filtered = items.filter(item =>
       item.name.toLowerCase().includes(lowercaseQuery)
     );
     setFilteredItems(filtered);
 
-    // Filter grouped items
-    const filteredGroups = groupedItems.map(group => ({
-      ...group,
-      items: group.items.filter(item =>
+    // Filter grouped items (search by both group names and item names)
+    const filteredGroups = groupedItems.map(group => {
+      const groupNameMatches = group.group_name.toLowerCase().includes(lowercaseQuery);
+      const matchingItems = group.items.filter(item =>
         item.name.toLowerCase().includes(lowercaseQuery)
-      )
-    })).filter(group => group.items.length > 0);
+      );
+      
+      // Include group if either:
+      // 1. Group name matches (show all items in that group)
+      // 2. Some items match (show only matching items)
+      if (groupNameMatches) {
+        return { ...group }; // Show all items in this group
+      } else if (matchingItems.length > 0) {
+        return { ...group, items: matchingItems }; // Show only matching items
+      }
+      
+      return null; // Don't include this group
+    }).filter(group => group !== null);
+    
     setFilteredGroupedItems(filteredGroups);
   };
 
