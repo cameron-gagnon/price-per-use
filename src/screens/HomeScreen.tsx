@@ -93,6 +93,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     navigation.navigate('ItemDetail', { itemId: item.id });
   };
 
+  const handleGroupLongPress = (groupId: number) => {
+    navigation.navigate('GroupDetail', { groupId });
+  };
+
   const handleAddItem = () => {
     navigation.navigate('AddItem');
   };
@@ -145,6 +149,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       group={item}
       onUsageIncrement={handleUsageIncrement}
       onItemLongPress={handleItemLongPress}
+      onGroupLongPress={handleGroupLongPress}
       initialExpanded={searchQuery.trim().length > 0}
     />
   );

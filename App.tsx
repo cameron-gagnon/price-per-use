@@ -8,6 +8,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import HomeScreen from './src/screens/HomeScreen';
 import AddItemScreen from './src/screens/AddItemScreen';
 import ItemDetailScreen from './src/screens/ItemDetailScreen';
+import GroupDetailScreen from './src/screens/GroupDetailScreen';
 
 const Stack = createStackNavigator();
 
@@ -44,6 +45,10 @@ export default function App() {
             <Stack.Screen 
               name="ItemDetail" 
               component={ItemDetailScreen} 
+            />
+            <Stack.Screen 
+              name="GroupDetail" 
+              component={GroupDetailScreen} 
             />
           </Stack.Navigator>
           <StatusBar style="auto" />

@@ -8,6 +8,7 @@ interface GroupSectionProps {
   group: GroupWithItems;
   onUsageIncrement: (itemId: number) => void;
   onItemLongPress: (item: ItemWithUsage) => void;
+  onGroupLongPress?: (groupId: number) => void;
   initialExpanded?: boolean;
 }
 
@@ -15,6 +16,7 @@ export const GroupSection: React.FC<GroupSectionProps> = ({
   group,
   onUsageIncrement,
   onItemLongPress,
+  onGroupLongPress,
   initialExpanded = false
 }) => {
   const [expanded, setExpanded] = useState(initialExpanded);
@@ -44,6 +46,7 @@ export const GroupSection: React.FC<GroupSectionProps> = ({
     <View style={styles.container}>
       <TouchableOpacity
         onPress={handleToggleExpanded}
+        onLongPress={() => onGroupLongPress && group.group_id && onGroupLongPress(group.group_id)}
         activeOpacity={0.7}
         style={styles.headerContainer}
       >

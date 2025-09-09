@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, ScrollView, StyleSheet, Alert, Platform, TouchableOpacity } from 'react-native';
-import { Appbar, Card, Text, Button, ActivityIndicator, IconButton, Dialog, Portal, TextInput, Menu, Modal, Surface, HelperText, Icon } from 'react-native-paper';
+import { View, ScrollView, StyleSheet, Alert, Platform, TouchableOpacity, FlatList } from 'react-native';
+import { Appbar, Card, Text, Button, ActivityIndicator, IconButton, Dialog, Portal, TextInput, Menu, Modal, Surface, HelperText, Icon, Divider } from 'react-native-paper';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { ItemWithUsage, UsageRecord, Group, CreateGroupInput } from '../types';
 import itemService from '../services/itemService';
@@ -355,50 +355,24 @@ export const ItemDetailScreen: React.FC<ItemDetailScreenProps> = ({
               <Text variant="bodySmall" style={styles.statLabel}>Group</Text>
               <View style={styles.groupDisplayRow}>
                 <View style={styles.groupDisplayContainer}>
-                  <Menu
-                    visible={groupMenuVisible}
-                    onDismiss={() => setGroupMenuVisible(false)}
-                    anchor={
-                      <View style={styles.groupDisplayFlex}>
-                        <Text
-                          variant="bodyLarge"
-                          style={styles.groupNameTextFlex}
-                          numberOfLines={1}
-                          ellipsizeMode="tail"
-                        >
-                          {currentGroup ? currentGroup.name : 'Ungrouped'}
-                        </Text>
-                        {currentGroup && (
-                          <View
-                            style={[styles.groupColorIndicatorFlex, { backgroundColor: currentGroup.color }]}
-                          />
-                        )}
-                      </View>
-                    }
-                    contentStyle={styles.menu}
+                  <TouchableOpacity
+                    onPress={() => setGroupMenuVisible(true)}
+                    style={styles.groupDisplayFlex}
                   >
-                    <Menu.Item
-                      title="Ungrouped"
-                      onPress={() => handleGroupSelect(null)}
-                      leadingIcon={item.group_id === null ? 'check' : undefined}
-                    />
-
-                    {groups.map((group) => (
-                      <Menu.Item
-                        key={group.id}
-                        title={group.name}
-                        onPress={() => handleGroupSelect(group.id)}
-                        leadingIcon={group.id === item.group_id ? 'check' : undefined}
-                        titleStyle={{ color: group.color }}
+                    <Text
+                      variant="bodyLarge"
+                      style={styles.groupNameTextFlex}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
+                      {currentGroup ? currentGroup.name : 'Ungrouped'}
+                    </Text>
+                    {currentGroup && (
+                      <View
+                        style={[styles.groupColorIndicatorFlex, { backgroundColor: currentGroup.color }]}
                       />
-                    ))}
-
-                    <Menu.Item
-                      title="Create New Group..."
-                      onPress={handleOpenCreateGroupModal}
-                      leadingIcon="plus"
-                    />
-                  </Menu>
+                    )}
+                  </TouchableOpacity>
                 </View>
                 <IconButton
                   icon="pencil"
@@ -487,6 +461,69 @@ export const ItemDetailScreen: React.FC<ItemDetailScreenProps> = ({
             <Button onPress={handleAddUsageConfirm}>Add Usage</Button>
           </Dialog.Actions>
         </Dialog>
+
+        <Modal
+          visible={groupMenuVisible}
+          onDismiss={() => setGroupMenuVisible(false)}
+          contentContainerStyle={styles.groupModalContainer}
+          dismissable={true}
+          dismissableBackButton={true}
+        >
+          <View style={styles.modalOverlay}>
+            <TouchableOpacity 
+              style={styles.modalBackdrop}
+              activeOpacity={1} 
+              onPress={() => setGroupMenuVisible(false)}
+            />
+            <View style={styles.groupModalSurface}>
+            <Text variant="headlineSmall" style={styles.modalTitle}>
+              Select Group
+            </Text>
+            
+            <ScrollView style={styles.groupScrollView}>
+              <TouchableOpacity
+                style={[
+                  styles.groupMenuItem,
+                  item.group_id === null && styles.groupMenuItemSelected
+                ]}
+                onPress={() => handleGroupSelect(null)}
+              >
+                <Icon source="check" size={20} color={item.group_id === null ? '#6200EE' : 'transparent'} />
+                <Text variant="bodyLarge" style={styles.groupMenuItemText}>
+                  Ungrouped
+                </Text>
+              </TouchableOpacity>
+              
+              {groups.map((group) => (
+                <TouchableOpacity
+                  key={group.id}
+                  style={[
+                    styles.groupMenuItem,
+                    group.id === item.group_id && styles.groupMenuItemSelected
+                  ]}
+                  onPress={() => handleGroupSelect(group.id)}
+                >
+                  <Icon source="check" size={20} color={group.id === item.group_id ? '#6200EE' : 'transparent'} />
+                  <Text variant="bodyLarge" style={[styles.groupMenuItemText, { color: group.color }]}>
+                    {group.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+              
+              <Divider style={styles.menuDivider} />
+              <TouchableOpacity
+                style={styles.groupMenuItem}
+                onPress={handleOpenCreateGroupModal}
+              >
+                <Icon source="plus" size={20} color="#666" />
+                <Text variant="bodyLarge" style={[styles.groupMenuItemText, styles.createGroupItemTitle]}>
+                  Create New Group...
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+            </View>
+          </View>
+        </Modal>
 
         <Modal
           visible={createGroupModalVisible}
@@ -729,6 +766,63 @@ const styles = StyleSheet.create({
   },
   menu: {
     maxHeight: 300,
+    borderRadius: 8,
+    elevation: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
+  menuDivider: {
+    marginVertical: 4,
+  },
+  createGroupItemTitle: {
+    fontStyle: 'italic',
+    opacity: 0.8,
+  },
+  groupModalContainer: {
+    flex: 1,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  groupModalSurface: {
+    padding: 24,
+    borderRadius: 12,
+    width: '90%',
+    maxWidth: 400,
+    maxHeight: '70%',
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  groupScrollView: {
+    maxHeight: 300,
+  },
+  groupMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginVertical: 2,
+  },
+  groupMenuItemSelected: {
+    backgroundColor: '#f0f0f0',
+  },
+  groupMenuItemText: {
+    marginLeft: 12,
+    flex: 1,
   },
   modalContainer: {
     flex: 1,
