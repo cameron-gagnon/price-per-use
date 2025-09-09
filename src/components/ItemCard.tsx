@@ -8,12 +8,14 @@ interface ItemCardProps {
   item: ItemWithUsage;
   onUsageIncrement: (itemId: number) => void;
   onLongPress: (item: ItemWithUsage) => void;
+  groupColor?: string | null;
 }
 
 export const ItemCard: React.FC<ItemCardProps> = ({ 
   item, 
   onUsageIncrement, 
-  onLongPress 
+  onLongPress,
+  groupColor 
 }) => {
   const handlePress = () => {
     onUsageIncrement(item.id);
@@ -36,7 +38,8 @@ export const ItemCard: React.FC<ItemCardProps> = ({
     return contrastColor === '#000000' ? '#666666' : '#CCCCCC';
   };
 
-  const cardBackgroundColor = item.color || '#6200EE';
+  // Use group color if available, otherwise fall back to item color, then default
+  const cardBackgroundColor = groupColor || item.color || '#6200EE';
   const textColor = getContrastColor(cardBackgroundColor);
   const secondaryTextColor = getSecondaryTextColor(cardBackgroundColor);
 

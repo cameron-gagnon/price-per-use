@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, FlatList, StyleSheet, RefreshControl } from 'react-native';
-import { Appbar, FAB, Text, ActivityIndicator, Surface, Searchbar } from 'react-native-paper';
+import { View, FlatList, StyleSheet, RefreshControl, SectionList } from 'react-native';
+import { Appbar, FAB, Text, ActivityIndicator, Surface, Searchbar, ToggleButton } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
 import ItemCard from '../components/ItemCard';
-import { ItemWithUsage } from '../types';
+import GroupSection from '../components/GroupSection';
+import { ItemWithUsage, GroupWithItems } from '../types';
 import itemService from '../services/itemService';
 
 interface HomeScreenProps {
@@ -13,17 +14,34 @@ interface HomeScreenProps {
 export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const [items, setItems] = useState<ItemWithUsage[]>([]);
   const [filteredItems, setFilteredItems] = useState<ItemWithUsage[]>([]);
+  const [groupedItems, setGroupedItems] = useState<GroupWithItems[]>([]);
+  const [filteredGroupedItems, setFilteredGroupedItems] = useState<GroupWithItems[]>([]);
+  const [groups, setGroups] = useState<{ [key: number]: string }>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useState<'list' | 'grouped'>('grouped');
 
   const loadItems = async () => {
     try {
       setError(null);
-      const itemsData = await itemService.getAllItemsWithUsage();
+      const [itemsData, groupedData, groupsData] = await Promise.all([
+        itemService.getAllItemsWithUsage(),
+        itemService.getItemsGroupedWithUsage(),
+        itemService.getAllGroups()
+      ]);
       setItems(itemsData);
       setFilteredItems(itemsData);
+      setGroupedItems(groupedData);
+      setFilteredGroupedItems(groupedData);
+      
+      // Create a lookup map for group colors
+      const groupColorMap: { [key: number]: string } = {};
+      groupsData.forEach(group => {
+        groupColorMap[group.id] = group.color;
+      });
+      setGroups(groupColorMap);
     } catch (err) {
       console.error('Failed to load items:', err);
       setError('Failed to load items. Please try again.');
@@ -82,14 +100,26 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const filterItems = (query: string) => {
     if (!query.trim()) {
       setFilteredItems(items);
+      setFilteredGroupedItems(groupedItems);
       return;
     }
     
     const lowercaseQuery = query.toLowerCase().trim();
+    
+    // Filter individual items
     const filtered = items.filter(item =>
       item.name.toLowerCase().includes(lowercaseQuery)
     );
     setFilteredItems(filtered);
+
+    // Filter grouped items
+    const filteredGroups = groupedItems.map(group => ({
+      ...group,
+      items: group.items.filter(item =>
+        item.name.toLowerCase().includes(lowercaseQuery)
+      )
+    })).filter(group => group.items.length > 0);
+    setFilteredGroupedItems(filteredGroups);
   };
 
   const handleSearchChange = (query: string) => {
@@ -99,13 +129,23 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
   useEffect(() => {
     filterItems(searchQuery);
-  }, [items]);
+  }, [items, groupedItems]);
 
   const renderItem = ({ item }: { item: ItemWithUsage }) => (
     <ItemCard
       item={item}
       onUsageIncrement={handleUsageIncrement}
       onLongPress={handleItemLongPress}
+      groupColor={item.group_id ? groups[item.group_id] : null}
+    />
+  );
+
+  const renderGroupItem = ({ item }: { item: GroupWithItems }) => (
+    <GroupSection
+      group={item}
+      onUsageIncrement={handleUsageIncrement}
+      onItemLongPress={handleItemLongPress}
+      initialExpanded={searchQuery.trim().length > 0}
     />
   );
 
@@ -127,6 +167,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     );
   };
 
+  const handleToggleView = () => {
+    setViewMode(viewMode === 'list' ? 'grouped' : 'list');
+  };
+
   if (loading) {
     return (
       <View style={styles.container}>
@@ -145,6 +189,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     <View style={styles.container}>
       <Appbar.Header>
         <Appbar.Content title="Price Per Use" />
+        <ToggleButton
+          icon={viewMode === 'grouped' ? 'view-list' : 'view-module'}
+          value={viewMode}
+          onPress={handleToggleView}
+          status={viewMode === 'grouped' ? 'checked' : 'unchecked'}
+        />
       </Appbar.Header>
 
       <Searchbar
@@ -162,16 +212,29 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         </Surface>
       )}
 
-      <FlatList
-        data={filteredItems}
-        renderItem={renderItem}
-        keyExtractor={(item) => item.id.toString()}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-        }
-        ListEmptyComponent={renderEmptyState}
-        contentContainerStyle={filteredItems.length === 0 ? styles.emptyContainer : undefined}
-      />
+      {viewMode === 'grouped' ? (
+        <FlatList
+          data={filteredGroupedItems}
+          renderItem={renderGroupItem}
+          keyExtractor={(group) => `group_${group.group_id}`}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+          }
+          ListEmptyComponent={renderEmptyState}
+          contentContainerStyle={filteredGroupedItems.length === 0 ? styles.emptyContainer : undefined}
+        />
+      ) : (
+        <FlatList
+          data={filteredItems}
+          renderItem={renderItem}
+          keyExtractor={(item) => item.id.toString()}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+          }
+          ListEmptyComponent={renderEmptyState}
+          contentContainerStyle={filteredItems.length === 0 ? styles.emptyContainer : undefined}
+        />
+      )}
 
       <FAB
         icon="plus"

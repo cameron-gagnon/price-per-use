@@ -1,7 +1,11 @@
-import { Item, UsageRecord, CreateItemInput, UpdateItemInput, ItemWithUsage } from '../types';
+import { Item, UsageRecord, CreateItemInput, UpdateItemInput, ItemWithUsage, Group, CreateGroupInput, UpdateGroupInput, GroupWithItems } from '../types';
 import databaseService from './database';
 
 class ItemService {
+  // Character limits
+  static readonly MAX_ITEM_NAME_LENGTH = 50;
+  static readonly MAX_GROUP_NAME_LENGTH = 30;
+
   async initialize(): Promise<void> {
     await databaseService.initializeDatabase();
   }
@@ -17,6 +21,9 @@ class ItemService {
   async createItem(itemData: CreateItemInput): Promise<Item> {
     if (!itemData.name.trim()) {
       throw new Error('Item name is required');
+    }
+    if (itemData.name.trim().length > ItemService.MAX_ITEM_NAME_LENGTH) {
+      throw new Error(`Item name must be ${ItemService.MAX_ITEM_NAME_LENGTH} characters or less`);
     }
     if (itemData.price <= 0) {
       throw new Error('Item price must be greater than 0');
@@ -35,6 +42,9 @@ class ItemService {
     if (updates.name !== undefined && !updates.name.trim()) {
       throw new Error('Item name cannot be empty');
     }
+    if (updates.name !== undefined && updates.name.trim().length > ItemService.MAX_ITEM_NAME_LENGTH) {
+      throw new Error(`Item name must be ${ItemService.MAX_ITEM_NAME_LENGTH} characters or less`);
+    }
     if (updates.price !== undefined && updates.price <= 0) {
       throw new Error('Item price must be greater than 0');
     }
@@ -43,6 +53,50 @@ class ItemService {
     }
 
     await databaseService.updateItem(id, updates);
+  }
+
+  async getAllGroups(): Promise<Group[]> {
+    return await databaseService.getGroups();
+  }
+
+  async getGroup(id: number): Promise<Group | null> {
+    return await databaseService.getGroupById(id);
+  }
+
+  async createGroup(groupData: CreateGroupInput): Promise<Group> {
+    if (!groupData.name.trim()) {
+      throw new Error('Group name is required');
+    }
+    if (groupData.name.trim().length > ItemService.MAX_GROUP_NAME_LENGTH) {
+      throw new Error(`Group name must be ${ItemService.MAX_GROUP_NAME_LENGTH} characters or less`);
+    }
+    if (groupData.color && !this.isValidHexColor(groupData.color)) {
+      throw new Error('Invalid color format. Please use hex color format (e.g., #FF0000)');
+    }
+
+    return await databaseService.createGroup(groupData.name, groupData.color);
+  }
+
+  async updateGroup(id: number, updates: UpdateGroupInput): Promise<void> {
+    if (updates.name !== undefined && !updates.name.trim()) {
+      throw new Error('Group name cannot be empty');
+    }
+    if (updates.name !== undefined && updates.name.trim().length > ItemService.MAX_GROUP_NAME_LENGTH) {
+      throw new Error(`Group name must be ${ItemService.MAX_GROUP_NAME_LENGTH} characters or less`);
+    }
+    if (updates.color && !this.isValidHexColor(updates.color)) {
+      throw new Error('Invalid color format. Please use hex color format (e.g., #FF0000)');
+    }
+
+    await databaseService.updateGroup(id, updates);
+  }
+
+  async deleteGroup(id: number): Promise<void> {
+    await databaseService.deleteGroup(id);
+  }
+
+  async getItemsGroupedWithUsage(): Promise<GroupWithItems[]> {
+    return await databaseService.getItemsGroupedWithUsage();
   }
 
   async deleteItem(id: number): Promise<void> {

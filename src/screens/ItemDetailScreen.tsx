@@ -1,13 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, ScrollView, StyleSheet, Alert, Platform, TouchableOpacity } from 'react-native';
-import { Appbar, Card, Text, Button, ActivityIndicator, IconButton, Dialog, Portal, TextInput } from 'react-native-paper';
+import { Appbar, Card, Text, Button, ActivityIndicator, IconButton, Dialog, Portal, TextInput, Menu, Modal, Surface, HelperText, Icon } from 'react-native-paper';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { ItemWithUsage, UsageRecord } from '../types';
+import { ItemWithUsage, UsageRecord, Group, CreateGroupInput } from '../types';
 import itemService from '../services/itemService';
+import ColorPicker from '../components/ColorPicker';
 
 interface ItemDetailScreenProps {
-  navigation: any;
-  route: {
+  navigation?: any;
+  route?: {
     params: {
       itemId: number;
     };
@@ -18,7 +19,7 @@ export const ItemDetailScreen: React.FC<ItemDetailScreenProps> = ({
   navigation,
   route,
 }) => {
-  const { itemId } = route.params;
+  const { itemId } = route?.params || { itemId: 0 };
   const [item, setItem] = useState<ItemWithUsage | null>(null);
   const [usageHistory, setUsageHistory] = useState<UsageRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,6 +31,15 @@ export const ItemDetailScreen: React.FC<ItemDetailScreenProps> = ({
   const [shouldResetDateTime, setShouldResetDateTime] = useState(true);
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState('');
+  const [currentGroup, setCurrentGroup] = useState<Group | null>(null);
+  const [isEditingGroup, setIsEditingGroup] = useState(false);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [groupMenuVisible, setGroupMenuVisible] = useState(false);
+  const [createGroupModalVisible, setCreateGroupModalVisible] = useState(false);
+  const [newGroupName, setNewGroupName] = useState('');
+  const [newGroupColor, setNewGroupColor] = useState('#6200EE');
+  const [groupError, setGroupError] = useState<string | null>(null);
+  const nameInputRef = useRef<any>(null);
 
   useEffect(() => {
     loadItemDetails();
@@ -38,12 +48,22 @@ export const ItemDetailScreen: React.FC<ItemDetailScreenProps> = ({
   const loadItemDetails = async () => {
     try {
       setError(null);
-      const [itemData, history] = await Promise.all([
+      const [itemData, history, groupsData] = await Promise.all([
         itemService.getItemWithUsage(itemId),
         itemService.getUsageHistory(itemId),
+        itemService.getAllGroups(),
       ]);
       setItem(itemData);
       setUsageHistory(history);
+      setGroups(groupsData);
+
+      // Load group information if item has a group
+      if (itemData.group_id) {
+        const groupData = await itemService.getGroup(itemData.group_id);
+        setCurrentGroup(groupData);
+      } else {
+        setCurrentGroup(null);
+      }
     } catch (err) {
       console.error('Failed to load item details:', err);
       setError('Failed to load item details. Please try again.');
@@ -62,7 +82,7 @@ export const ItemDetailScreen: React.FC<ItemDetailScreenProps> = ({
 
   const handleAddUsageConfirm = async () => {
     if (!item) return;
-    
+
     try {
       const dateTimeString = selectedDateTime.toISOString();
       await itemService.incrementUsage(item.id, dateTimeString);
@@ -79,7 +99,7 @@ export const ItemDetailScreen: React.FC<ItemDetailScreenProps> = ({
     setShowAddUsageDialog(false);
   };
 
-  const handleNameLongPress = () => {
+  const handleNameEdit = () => {
     if (item) {
       setEditedName(item.name);
       setIsEditingName(true);
@@ -87,8 +107,12 @@ export const ItemDetailScreen: React.FC<ItemDetailScreenProps> = ({
   };
 
   const handleNameSave = async () => {
-    if (!item || !editedName.trim()) return;
-    
+    if (!item || !editedName.trim()) {
+      // If empty name, cancel instead of save
+      handleNameCancel();
+      return;
+    }
+
     try {
       await itemService.updateItem(item.id, { name: editedName.trim() });
       await loadItemDetails();
@@ -96,12 +120,81 @@ export const ItemDetailScreen: React.FC<ItemDetailScreenProps> = ({
     } catch (err) {
       console.error('Failed to update item name:', err);
       setError('Failed to update item name. Please try again.');
+      // Stay in edit mode if there was an error
     }
   };
 
   const handleNameCancel = () => {
+    if (nameInputRef.current) {
+      nameInputRef.current.blur();
+    }
     setIsEditingName(false);
-    setEditedName('');
+    setEditedName(item?.name || ''); // Reset to original name
+  };
+
+  const handleGroupEditClick = () => {
+    setGroupMenuVisible(true);
+  };
+
+  const handleGroupSelect = async (groupId: number | null) => {
+    if (!item) return;
+
+    try {
+      await itemService.updateItem(item.id, { group_id: groupId });
+      await loadItemDetails();
+      setGroupMenuVisible(false);
+    } catch (err) {
+      console.error('Failed to update item group:', err);
+      setError('Failed to update item group. Please try again.');
+    }
+  };
+
+  const handleCreateGroup = async () => {
+    if (!newGroupName.trim()) {
+      setGroupError('Group name is required');
+      return;
+    }
+
+    setLoading(true);
+    setGroupError(null);
+
+    try {
+      const groupData: CreateGroupInput = {
+        name: newGroupName.trim(),
+        color: newGroupColor,
+      };
+
+      const newGroup = await itemService.createGroup(groupData);
+
+      // Add to local groups list
+      setGroups([...groups, newGroup]);
+
+      // Select the new group
+      await handleGroupSelect(newGroup.id);
+
+      // Reset form and close modal
+      setNewGroupName('');
+      setNewGroupColor('#6200EE');
+      setCreateGroupModalVisible(false);
+      setGroupMenuVisible(false);
+    } catch (err: any) {
+      setGroupError(err.message || 'Failed to create group');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOpenCreateGroupModal = () => {
+    setGroupMenuVisible(false);
+    setCreateGroupModalVisible(true);
+    setGroupError(null);
+  };
+
+  const handleCloseCreateGroupModal = () => {
+    setCreateGroupModalVisible(false);
+    setNewGroupName('');
+    setNewGroupColor('#6200EE');
+    setGroupError(null);
   };
 
   const handleDateChange = (event: any, date?: Date) => {
@@ -127,10 +220,10 @@ export const ItemDetailScreen: React.FC<ItemDetailScreenProps> = ({
 
   const handleDelete = async () => {
     if (!item) return;
-    
+
     try {
       await itemService.deleteItem(item.id);
-      navigation.goBack();
+      navigation?.goBack();
     } catch (err) {
       console.error('Failed to delete item:', err);
       setError('Failed to delete item. Please try again.');
@@ -167,7 +260,7 @@ export const ItemDetailScreen: React.FC<ItemDetailScreenProps> = ({
     return (
       <View style={styles.container}>
         <Appbar.Header>
-          <Appbar.BackAction onPress={() => navigation.goBack()} />
+          <Appbar.BackAction onPress={() => navigation?.goBack()} />
           <Appbar.Content title="Item Details" />
         </Appbar.Header>
         <View style={styles.centerContent}>
@@ -181,7 +274,7 @@ export const ItemDetailScreen: React.FC<ItemDetailScreenProps> = ({
     return (
       <View style={styles.container}>
         <Appbar.Header>
-          <Appbar.BackAction onPress={() => navigation.goBack()} />
+          <Appbar.BackAction onPress={() => navigation?.goBack()} />
           <Appbar.Content title="Item Details" />
         </Appbar.Header>
         <View style={styles.centerContent}>
@@ -195,45 +288,45 @@ export const ItemDetailScreen: React.FC<ItemDetailScreenProps> = ({
     <View style={styles.container}>
       <Appbar.Header>
         <Appbar.BackAction onPress={() => navigation.goBack()} />
-        <Appbar.Content title={item.name} />
+        {isEditingName ? (
+          <View style={styles.headerEditContainer}>
+            <TextInput
+              ref={nameInputRef}
+              value={editedName}
+              onChangeText={setEditedName}
+              style={styles.headerEditInput}
+              autoFocus
+              onSubmitEditing={handleNameSave}
+              onBlur={() => {
+                // Small delay to ensure state updates properly
+                setTimeout(() => {
+                  if (isEditingName) {
+                    handleNameCancel();
+                  }
+                }, 100);
+              }}
+              returnKeyType="done"
+              blurOnSubmit={true}
+              maxLength={50}
+            />
+          </View>
+        ) : (
+          <>
+            <Appbar.Content
+              title={item.name}
+              titleStyle={styles.headerTitle}
+            />
+            <Appbar.Action
+              icon="pencil"
+              onPress={handleNameEdit}
+            />
+          </>
+        )}
       </Appbar.Header>
 
       <ScrollView style={styles.content}>
         <Card style={styles.card}>
           <Card.Content>
-            {isEditingName ? (
-              <View style={styles.nameEditContainer}>
-                <TextInput
-                  value={editedName}
-                  onChangeText={setEditedName}
-                  style={styles.nameEditInput}
-                  mode="outlined"
-                  autoFocus
-                  onSubmitEditing={handleNameSave}
-                />
-                <View style={styles.nameEditButtons}>
-                  <IconButton
-                    icon="check"
-                    size={20}
-                    iconColor="#4CAF50"
-                    onPress={handleNameSave}
-                  />
-                  <IconButton
-                    icon="close"
-                    size={20}
-                    iconColor="#f44336"
-                    onPress={handleNameCancel}
-                  />
-                </View>
-              </View>
-            ) : (
-              <TouchableOpacity onLongPress={handleNameLongPress}>
-                <Text variant="headlineSmall" style={styles.itemName}>
-                  {item.name}
-                </Text>
-              </TouchableOpacity>
-            )}
-            
             <View style={styles.priceContainer}>
               <Text variant="displayMedium" style={styles.pricePerUse}>
                 {itemService.formatCurrency(item.price_per_use)}
@@ -255,6 +348,65 @@ export const ItemDetailScreen: React.FC<ItemDetailScreenProps> = ({
               <View style={styles.statItem}>
                 <Text variant="bodySmall" style={styles.statLabel}>Purchase Date</Text>
                 <Text variant="bodyLarge">{itemService.formatDate(item.purchase_date)}</Text>
+              </View>
+            </View>
+
+            <View style={styles.groupContainer}>
+              <Text variant="bodySmall" style={styles.statLabel}>Group</Text>
+              <View style={styles.groupDisplayRow}>
+                <View style={styles.groupDisplayContainer}>
+                  <Menu
+                    visible={groupMenuVisible}
+                    onDismiss={() => setGroupMenuVisible(false)}
+                    anchor={
+                      <View style={styles.groupDisplayFlex}>
+                        <Text
+                          variant="bodyLarge"
+                          style={styles.groupNameTextFlex}
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                        >
+                          {currentGroup ? currentGroup.name : 'Ungrouped'}
+                        </Text>
+                        {currentGroup && (
+                          <View
+                            style={[styles.groupColorIndicatorFlex, { backgroundColor: currentGroup.color }]}
+                          />
+                        )}
+                      </View>
+                    }
+                    contentStyle={styles.menu}
+                  >
+                    <Menu.Item
+                      title="Ungrouped"
+                      onPress={() => handleGroupSelect(null)}
+                      leadingIcon={item.group_id === null ? 'check' : undefined}
+                    />
+
+                    {groups.map((group) => (
+                      <Menu.Item
+                        key={group.id}
+                        title={group.name}
+                        onPress={() => handleGroupSelect(group.id)}
+                        leadingIcon={group.id === item.group_id ? 'check' : undefined}
+                        titleStyle={{ color: group.color }}
+                      />
+                    ))}
+
+                    <Menu.Item
+                      title="Create New Group..."
+                      onPress={handleOpenCreateGroupModal}
+                      leadingIcon="plus"
+                    />
+                  </Menu>
+                </View>
+                <IconButton
+                  icon="pencil"
+                  size={20}
+                  iconColor="#666"
+                  onPress={handleGroupEditClick}
+                  style={styles.editIcon}
+                />
               </View>
             </View>
           </Card.Content>
@@ -335,6 +487,60 @@ export const ItemDetailScreen: React.FC<ItemDetailScreenProps> = ({
             <Button onPress={handleAddUsageConfirm}>Add Usage</Button>
           </Dialog.Actions>
         </Dialog>
+
+        <Modal
+          visible={createGroupModalVisible}
+          onDismiss={handleCloseCreateGroupModal}
+          contentContainerStyle={styles.modalContainer}
+        >
+          <Surface style={styles.modalSurface}>
+            <Text variant="headlineSmall" style={styles.modalTitle}>
+              Create New Group
+            </Text>
+
+            <TextInput
+              label="Group Name"
+              value={newGroupName}
+              onChangeText={setNewGroupName}
+              mode="outlined"
+              style={styles.input}
+              error={!!groupError}
+              disabled={loading}
+            />
+
+            {groupError && (
+              <HelperText type="error" visible={true}>
+                {groupError}
+              </HelperText>
+            )}
+
+            <ColorPicker
+              selectedColor={newGroupColor}
+              onColorSelect={setNewGroupColor}
+              label="Group Color"
+            />
+
+            <View style={styles.modalButtons}>
+              <Button
+                mode="outlined"
+                onPress={handleCloseCreateGroupModal}
+                style={styles.modalButton}
+                disabled={loading}
+              >
+                Cancel
+              </Button>
+              <Button
+                mode="contained"
+                onPress={handleCreateGroup}
+                style={styles.modalButton}
+                loading={loading}
+                disabled={loading}
+              >
+                Create
+              </Button>
+            </View>
+          </Surface>
+        </Modal>
       </Portal>
 
       {showDatePicker && (
@@ -375,9 +581,15 @@ const styles = StyleSheet.create({
   card: {
     marginBottom: 16,
   },
+  nameDisplayContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
   itemName: {
     textAlign: 'center',
-    marginBottom: 16,
+    flex: 1,
   },
   priceContainer: {
     alignItems: 'center',
@@ -439,14 +651,126 @@ const styles = StyleSheet.create({
   },
   nameEditContainer: {
     marginBottom: 16,
+    padding: 8,
   },
   nameEditInput: {
-    marginBottom: 8,
+    // No additional styles needed - just use the default TextInput styling
   },
-  nameEditButtons: {
+  groupContainer: {
+    marginTop: 24,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+  },
+  groupDisplayRow: {
     flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  groupDisplayContainer: {
+    flex: 1,
+    marginRight: 8,
+  },
+  groupEditContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  groupDisplay: {
+    flex: 1,
+    padding: 12,
+    backgroundColor: '#f9f9f9',
+    borderRadius: 8,
+    minWidth: 120, // Ensure adequate space for group display
+    maxWidth: '88%', // Reserve space for edit button
+  },
+  groupInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minWidth: 0, // Allow flex child to shrink
+  },
+  groupNameText: {
+    flex: 1,
+    marginRight: 6,
+    minWidth: 90, // Ensure space for ~15 characters
+    fontSize: 16,
+  },
+  groupColorIndicator: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    marginLeft: 3,
+    flexShrink: 0, // Prevent the color indicator from shrinking
+  },
+  editIcon: {
+    margin: 4,
+    minWidth: 48, // Ensure minimum touch target size
+    flexShrink: 0, // Prevent the icon from shrinking
+  },
+  groupDisplayFlex: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f9f9f9',
+    borderRadius: 8,
+    padding: 12,
+    width: '100%',
+  },
+  groupNameTextFlex: {
+    flex: 1,
+    fontSize: 16,
+    marginRight: 8,
+  },
+  groupColorIndicatorFlex: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    flexShrink: 0, // Prevent the color indicator from shrinking
+  },
+  menu: {
+    maxHeight: 300,
+  },
+  modalContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
+  },
+  modalSurface: {
+    padding: 24,
+    borderRadius: 12,
+    width: '100%',
+    maxWidth: 400,
+  },
+  modalTitle: {
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  input: {
+    marginBottom: 8,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 24,
+  },
+  modalButton: {
+    flex: 1,
+    marginHorizontal: 8,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  headerEditContainer: {
+    flex: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  headerEditInput: {
+    backgroundColor: '#fff',
+    fontSize: 16,
+    height: 40,
   },
 });
 
